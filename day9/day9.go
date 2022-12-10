@@ -19,8 +19,12 @@ type position struct {
 }
 
 type board struct {
-	head position
-	tail position
+	head  position
+	knots []position
+}
+
+func (b *board) tail() position {
+	return b.knots[len(b.knots)-1]
 }
 
 func (b *board) moveHead(dir string) {
@@ -36,40 +40,50 @@ func (b *board) moveHead(dir string) {
 	}
 }
 
-func (b *board) updateTail() position {
-	if areTouching(b.head, b.tail) {
-		return b.tail
-	} else {
-
-		//not touching, need to move tail
-
-		var candidates []position
-		if b.head.x != b.tail.x && b.head.y != b.tail.y {
-			//needs to move diagonally first
-
-			candidates = []position{
-				b.tail.up().left(),
-				b.tail.up().right(),
-				b.tail.down().left(),
-				b.tail.down().right(),
-			}
-
+func (b *board) updateKnots() {
+	for i, knot := range b.knots {
+		var parent position
+		if i == 0 {
+			parent = b.head
 		} else {
-			candidates = []position{
-				b.tail.left(),
-				b.tail.right(),
-				b.tail.up(),
-				b.tail.down(),
+			parent = b.knots[i-1]
+		}
+
+		if !areTouching(parent, knot) {
+			//not touching, need to move tail
+			var candidates []position
+			found := false
+			if parent.x != knot.x && parent.y != knot.y {
+				//needs to move diagonally first
+
+				candidates = []position{
+					knot.up().left(),
+					knot.up().right(),
+					knot.down().left(),
+					knot.down().right(),
+				}
+
+			} else {
+				candidates = []position{
+					knot.left(),
+					knot.right(),
+					knot.up(),
+					knot.down(),
+				}
+			}
+			for _, candidate := range candidates {
+				if areTouching(candidate, parent) {
+					b.knots[i] = candidate
+					found = true
+					break
+				}
+			}
+			if !found {
+				panic("unable to find head")
 			}
 		}
-		for _, candidate := range candidates {
-			if areTouching(candidate, b.head) {
-				b.tail = candidate
-				return candidate
-			}
-		}
-		panic("unable to find head")
 	}
+
 }
 
 func (p position) left() position {
@@ -102,11 +116,15 @@ func areTouching(pos1, pos2 position) bool {
 		math.Abs(float64(pos1.y-pos2.y)) <= 1
 }
 
-func newBoard() board {
+func newBoard(numKnots int) board {
 	start := position{0, 0}
+	var knots []position
+	for i := 0; i < numKnots-1; i++ {
+		knots = append(knots, start)
+	}
 	return board{
-		head: start,
-		tail: start,
+		head:  start,
+		knots: knots,
 	}
 }
 func SolveDay() {
@@ -125,16 +143,30 @@ func SolveDay() {
 		})
 	}
 
-	board := newBoard()
+	board := newBoard(2)
 	tailVisited := map[position]bool{}
-	tailVisited[board.tail] = true
+	tailVisited[board.tail()] = true
 	for _, move := range moves {
 		for i := 0; i < move.amount; i++ {
 			board.moveHead(move.dir)
-			pos := board.updateTail()
-			tailVisited[pos] = true
+			board.updateKnots()
+			tailVisited[board.tail()] = true
 		}
 	}
 
 	fmt.Println("Part 1:", len(tailVisited))
+
+	board = newBoard(10)
+	tailVisited = map[position]bool{}
+	tailVisited[board.tail()] = true
+	for _, move := range moves {
+		for i := 0; i < move.amount; i++ {
+			board.moveHead(move.dir)
+			board.updateKnots()
+			tailVisited[board.tail()] = true
+		}
+	}
+
+	fmt.Println("Part 2:", len(tailVisited))
+
 }
